@@ -1,0 +1,9 @@
+django
+djangorestframework
+psycopg[binary]
+celery
+redis
+python-dotenv
+django-cors-headers
+dj-database-url
+gunicorn

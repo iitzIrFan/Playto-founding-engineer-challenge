@@ -1,0 +1,94 @@
+databases:
+  - name: playto-db
+    plan: free
+    databaseName: playto_payout
+    user: playto
+
+services:
+  - type: redis
+    name: playto-redis
+    plan: free
+
+  - type: web
+    name: playto-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: |
+      python manage.py migrate
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: playto-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: playto-redis
+          type: redis
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://playto-frontend.onrender.com"
+
+  - type: worker
+    name: playto-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config worker --loglevel=info --concurrency=2
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: playto-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: playto-redis
+          type: redis
+          property: connectionString
+
+  - type: worker
+    name: playto-beat
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config beat --loglevel=info
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: playto-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: playto-redis
+          type: redis
+          property: connectionString
+
+  - type: static
+    name: playto-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://playto-api.onrender.com/api/v1
