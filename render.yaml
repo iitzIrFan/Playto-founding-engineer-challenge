@@ -83,12 +83,3 @@ services:
           name: playto-redis
           type: redis
           property: connectionString
-
-  - type: static
-    name: playto-frontend
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://playto-api.onrender.com/api/v1
